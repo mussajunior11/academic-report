@@ -1,0 +1,589 @@
+// Academic Report — Phase 1 schema
+//
+// Layering / integrity rules:
+//   School 1─* ClassLevel, Stream, Subject, Student, Examination ...
+//   ClassLevel 1─* ClassStream *─1 Stream   (valid class-stream combinations)
+//   Student belongs to one ClassLevel and one Stream; the (class, stream) pair
+//   must exist as an ACTIVE ClassStream row.
+//   Student *─* Subject through StudentSubjectRegistration.
+//
+// SQLite does not support Prisma enums, so constrained string columns are used
+// and validated in the application layer (see src/lib/validation).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ---------------------------------------------------------------------------
+// School / tenancy (single school in Phase 1, extensible later)
+// ---------------------------------------------------------------------------
+
+model School {
+  id      String  @id @default(cuid())
+  name    String
+  code    String  @unique
+  address String?
+  email   String?
+  website String?
+  poBox   String?
+
+  mobile1 String?
+  mobile2 String?
+  mobile3 String?
+
+  logoUrl       String?
+  logoUpdatedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+settings    SchoolSettings?
+    academicYears AcademicYear[]
+    classes     ClassLevel[]
+    streams     Stream[]
+    classStreams ClassStream[]
+    subjects    Subject[]
+    students    Student[]
+    examinations Examination[]
+    examTypes   ExaminationType[]
+    registrations StudentSubjectRegistration[]
+    subjectClasses SubjectClass[]
+    grades      Grade[]
+    divisions   Division[]
+    terms       Term[]
+    quarters    Quarter[]
+    users       User[]
+    marks       Mark[]
+    reportRemarks ReportRemark[]
+
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Grading configuration (one row per grade/division per school)
+// ---------------------------------------------------------------------------
+
+// A grade band on the per-subject mark scale. `code` is one of the fixed set
+// (A-F); the boundary scores are configurable per school. `points` is the
+// grade-to-points value used for division classification (default A=1 … F=5),
+// and `remark` is the status label shown for the grade (e.g. Poor).
+model Grade {
+  id        String @id @default(cuid())
+  schoolId  String
+  code      String
+  minScore  Int
+  maxScore  Int
+  points    Int    @default(0)
+  remark    String?
+
+  // Report-card remarks auto-filled for a student whose average falls in this
+  // grade. The academic master may edit them per student on the report form.
+  academicMasterRemark String?
+  headMasterRemark     String?
+
+  sortOrder Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, code])
+  @@index([schoolId])
+}
+
+// A division band on the total-points scale (I, II, III, IV, 0). Division is
+// classified from the sum of the student's best `divisionSubjects` grade points
+// (lower is better), never from the average mark alone.
+model Division {
+  id        String @id @default(cuid())
+  schoolId  String
+  code      String
+  minPoints Int
+  maxPoints Int
+
+  sortOrder Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, code])
+  @@index([schoolId])
+}
+
+// ---------------------------------------------------------------------------
+// Users / authentication (Phase 1: single default administrator)
+// ---------------------------------------------------------------------------
+
+model User {
+  id       String  @id @default(cuid())
+  schoolId String?
+
+  name         String
+  email        String  @unique
+  passwordHash String
+  role         String  @default("ADMIN")
+  status       String  @default("ACTIVE")
+
+  lastLoginAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school School? @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([schoolId, status])
+}
+
+// ---------------------------------------------------------------------------
+// School settings (one row per school)
+// ---------------------------------------------------------------------------
+
+model SchoolSettings {
+  id       String @id @default(cuid())
+  schoolId String @unique
+
+  schoolName String?
+  address    String?
+  mobile1    String?
+  mobile2    String?
+  mobile3    String?
+  email      String?
+  website    String?
+  poBox      String?
+
+  logoUrl       String?
+  logoUpdatedAt DateTime?
+
+  systemLogoUrl       String?
+  systemLogoUpdatedAt DateTime?
+
+  // Signature/stamp printed above the Head Master's signature line on report
+  // forms so reports do not need to be signed by hand.
+  headMasterSignatureUrl       String?
+  headMasterSignatureUpdatedAt DateTime?
+
+  sidebarColor   String @default("#ffffff")
+  sidebarOpacity Int    @default(75)
+
+  defaultAcademicYearId String?
+  passMark              Int     @default(40)
+  // Number of graded subjects counted when classifying a division (best N by
+  // points). Results with fewer graded subjects are reported as INC.
+  divisionSubjects      Int     @default(7)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school            School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  defaultAcademicYear AcademicYear? @relation("DefaultAcademicYear", fields: [defaultAcademicYearId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Academic periods
+// ---------------------------------------------------------------------------
+
+model AcademicYear {
+  id        String    @id @default(cuid())
+  schoolId  String
+  name      String
+  startDate DateTime?
+  endDate   DateTime?
+  isCurrent Boolean   @default(false)
+  status    String    @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school          School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  settingsAsDefault SchoolSettings[] @relation("DefaultAcademicYear")
+  examinations    Examination[]
+  registrations   StudentSubjectRegistration[]
+  terms           Term[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId, isCurrent])
+}
+
+// A term within an academic year (First Term, Second Term). There are exactly
+// two per year; the dates are configurable. Each term contains two quarters.
+model Term {
+  id             String    @id @default(cuid())
+  schoolId       String
+  academicYearId String
+  sequence       Int
+  name           String
+  startDate      DateTime?
+  endDate        DateTime?
+  status         String    @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school       School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  quarters     Quarter[]
+
+  @@unique([academicYearId, sequence])
+  @@index([schoolId])
+  @@index([academicYearId])
+}
+
+// A quarter within a term. There are four per year (1st–4th Quarter); the first
+// two belong to the First Term and the last two to the Second Term.
+model Quarter {
+  id        String    @id @default(cuid())
+  schoolId  String
+  termId    String
+  sequence  Int
+  name      String
+  startDate DateTime?
+  endDate   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  term   Term   @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  @@unique([termId, sequence])
+  @@index([schoolId])
+  @@index([termId])
+}
+
+// ---------------------------------------------------------------------------
+// Academic structure
+// ---------------------------------------------------------------------------
+
+model ClassLevel {
+  id        String @id @default(cuid())
+  schoolId  String
+  name      String
+  sortOrder Int    @default(0)
+  status    String @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school       School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classStreams ClassStream[]
+  students     Student[]
+  examinations Examination[]
+  compulsorySubjects SubjectClass[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId, status])
+}
+
+model Stream {
+  id        String @id @default(cuid())
+  schoolId  String
+  name      String
+  sortOrder Int    @default(0)
+  status    String @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school       School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classStreams ClassStream[]
+  students     Student[]
+  compulsorySubjects SubjectClass[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId, status])
+}
+
+// A valid, activatable combination of a class level and a stream.
+model ClassStream {
+  id           String @id @default(cuid())
+  schoolId     String
+  classLevelId String
+  streamId     String
+  status       String @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school     School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classLevel ClassLevel @relation(fields: [classLevelId], references: [id], onDelete: Cascade)
+  stream     Stream     @relation(fields: [streamId], references: [id], onDelete: Cascade)
+
+  @@unique([classLevelId, streamId])
+  @@index([schoolId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Students
+// ---------------------------------------------------------------------------
+
+model Student {
+  id       String @id @default(cuid())
+  schoolId String
+
+  admissionNumber String?
+  studentNumber   String
+
+  fullName String
+  gender   String
+
+  classLevelId String
+  streamId     String
+
+  admissionYear Int
+  status        String @default("ACTIVE")
+
+  // Soft archive: student records are never hard-deleted so historical
+  // examination data can be preserved in later phases.
+  archivedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school       School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classLevel   ClassLevel   @relation(fields: [classLevelId], references: [id])
+  stream       Stream       @relation(fields: [streamId], references: [id])
+  registrations StudentSubjectRegistration[]
+  specialNeeds StudentSpecialNeed[]
+  marks        Mark[]
+  reportRemarks ReportRemark[]
+
+  @@unique([schoolId, studentNumber])
+  @@unique([schoolId, admissionNumber])
+  @@index([schoolId, status, archivedAt])
+  @@index([classLevelId, streamId])
+  @@index([fullName])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Student support needs (respectful, inclusive language; multi-select)
+// ---------------------------------------------------------------------------
+
+// Fixed taxonomy of support-need categories. `id` is a stable key that the
+// application and validation layers reference directly; the rows are inserted
+// by the migration so every environment has the same set.
+model SpecialNeedCategory {
+  id          String @id
+  label       String
+  description String
+  sortOrder   Int    @default(0)
+
+  createdAt DateTime @default(now())
+
+  studentSpecialNeeds StudentSpecialNeed[]
+
+  @@index([sortOrder])
+}
+
+// A student may have more than one support need. `note` holds a short
+// description that is required for the "other" category.
+model StudentSpecialNeed {
+  id         String @id @default(cuid())
+  studentId  String
+  categoryId String
+  note       String?
+
+  createdAt DateTime @default(now())
+
+  student  Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  category SpecialNeedCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([studentId, categoryId])
+  @@index([studentId])
+  @@index([categoryId])
+}
+
+// ---------------------------------------------------------------------------
+// Subjects
+// ---------------------------------------------------------------------------
+
+model Subject {
+  id          String  @id @default(cuid())
+  schoolId    String
+  name        String
+  code        String?
+  numericCode String?
+  status      String  @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school        School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  registrations StudentSubjectRegistration[]
+  compulsoryClasses SubjectClass[]
+  marks         Mark[]
+
+  @@unique([schoolId, name])
+  @@unique([schoolId, code])
+  @@index([schoolId, status])
+}
+
+// Marks a subject as compulsory for a given class level. When a subject is
+// compulsory for a class, every student in that class is expected to take it.
+// An optional streamId narrows the requirement to a single stream of that class.
+model SubjectClass {
+  id           String  @id @default(cuid())
+  schoolId     String
+  subjectId    String
+  classLevelId String
+  streamId     String?
+
+  createdAt DateTime @default(now())
+
+  school     School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subject    Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  classLevel ClassLevel @relation(fields: [classLevelId], references: [id], onDelete: Cascade)
+  stream     Stream?    @relation(fields: [streamId], references: [id], onDelete: Cascade)
+
+  @@unique([subjectId, classLevelId, streamId])
+  @@index([schoolId])
+  @@index([classLevelId])
+  @@index([streamId])
+}
+
+// Many-to-many: the subjects a student is registered to take. `source` records
+// whether the registration was added automatically because the subject is
+// compulsory for the student's class/stream (COMPULSORY) or chosen manually
+// (MANUAL). Automatic sync only ever adds/removes COMPULSORY rows, so manual
+// optional picks are never lost.
+model StudentSubjectRegistration {
+  id             String @id @default(cuid())
+  schoolId       String
+  studentId      String
+  subjectId      String
+  academicYearId String
+  source         String @default("MANUAL")
+
+  createdAt DateTime @default(now())
+
+  school       School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject      Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, subjectId, academicYearId])
+  @@index([studentId, academicYearId])
+  @@index([subjectId])
+  @@index([schoolId, subjectId, source])
+}
+
+// ---------------------------------------------------------------------------
+// Examinations (Phase 1: setup only — no marks/grades/positions yet)
+// ---------------------------------------------------------------------------
+
+model ExaminationType {
+  id       String @id @default(cuid())
+  schoolId String
+  name     String
+  sortOrder Int   @default(0)
+  status   String @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school       School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  examinations Examination[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId, status])
+}
+
+model Examination {
+  id        String @id @default(cuid())
+  schoolId  String
+
+  typeId     String
+  academicYearId String
+  classLevelId   String
+
+  term       String?
+  name       String?
+  startDate  DateTime?
+  endDate    DateTime?
+  status     String @default("DRAFT")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school      School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  type        ExaminationType @relation(fields: [typeId], references: [id])
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  classLevel   ClassLevel   @relation(fields: [classLevelId], references: [id])
+  marks         Mark[]
+  reportRemarks ReportRemark[]
+
+  @@unique([academicYearId, typeId, classLevelId, term])
+  @@index([schoolId, status])
+  @@index([classLevelId, academicYearId])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Marks (Phase 2: one score per student, subject and examination)
+// ---------------------------------------------------------------------------
+
+// A single subject score for a student in an examination. Scores are stored as
+// decimals in the 0–100 range (at most one decimal place). A missing row means
+// "not entered"; an explicit 0 is a real score and must be distinguished from
+// a blank cell. Eligibility (student's class must match the examination and the
+// subject must be registered for the examination's academic year) is enforced
+// in the service layer.
+model Mark {
+  id            String @id @default(cuid())
+  schoolId      String
+  examinationId String
+  studentId     String
+  subjectId     String
+
+  score Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school      School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  examination Examination @relation(fields: [examinationId], references: [id], onDelete: Cascade)
+  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject     Subject     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([examinationId, studentId, subjectId])
+  @@index([schoolId, examinationId])
+  @@index([studentId])
+  @@index([subjectId])
+}
+
+// ---------------------------------------------------------------------------
+// Report card remarks (per student per examination; reviewable/printable)
+// ---------------------------------------------------------------------------
+
+// Free-text remarks printed on a student's report card. When no row exists the
+// report falls back to a performance-based suggestion; saving stores the
+// school's own wording.
+model ReportRemark {
+  id            String @id @default(cuid())
+  schoolId      String
+  examinationId String
+  studentId     String
+
+  academicMaster String?
+  headMaster     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school      School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  examination Examination @relation(fields: [examinationId], references: [id], onDelete: Cascade)
+  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([examinationId, studentId])
+  @@index([schoolId, examinationId])
+  @@index([studentId])
+}

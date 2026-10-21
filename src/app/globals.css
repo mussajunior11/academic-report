@@ -1,0 +1,326 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-slate-900);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-royal);
+  outline-offset: 2px;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  main {
+    background: #ffffff !important;
+  }
+
+  .app-main-inner {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .report-sheet {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .report-sheet.print-exact {
+    margin: 0 auto !important;
+    padding: 1.5rem !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 0.5rem !important;
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .report-sheet.print-exact * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Brand palette (open-book login + brand identity)
+   -------------------------------------------------------------------------- */
+
+@theme {
+  --color-brand: #0755a5;
+  --color-navy: #0b2f63;
+  --color-accent: #2b8ce5;
+  --color-pale: #eaf4ff;
+  --color-ink: #12365f;
+  --color-mist: #647a96;
+}
+
+/* --------------------------------------------------------------------------
+   App theme (dashboards + module pages) — Royal blue on light cream
+   -------------------------------------------------------------------------- */
+
+@theme {
+  --color-royal: #014baa;
+  --color-royal-dark: #013a86;
+  --color-royal-soft: #e8eff9;
+  --color-royal-tint: #f2f7fd;
+  --color-cream: #f8f3f0;
+  --color-cream-deep: #ece3dd;
+}
+
+/* --------------------------------------------------------------------------
+   Open-book login
+   -------------------------------------------------------------------------- */
+
+.login-stage {
+  position: relative;
+  min-height: 100svh;
+  overflow-x: hidden;
+  background:
+    radial-gradient(110% 70% at 10% -5%, #ffffff 0%, rgba(255, 255, 255, 0) 55%),
+    radial-gradient(120% 90% at 106% 108%, #e2f0ff 0%, rgba(226, 240, 255, 0) 62%),
+    linear-gradient(160deg, #f7fbff 0%, #eaf4ff 48%, #ffffff 100%);
+}
+
+.book-perspective {
+  perspective: 2200px;
+}
+
+.book-enter {
+  animation: book-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes book-in {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.book-frame {
+  position: relative;
+  border-radius: 24px;
+  padding: 14px;
+  background: linear-gradient(150deg, #104a92 0%, #0b2f63 48%, #061a3c 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 46px 90px -38px rgba(11, 47, 99, 0.6),
+    0 18px 40px -20px rgba(11, 47, 99, 0.45);
+  transform: rotateX(1.4deg);
+}
+
+.book {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #ffffff 0%, #f4f9ff 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 0 0 1px rgba(11, 47, 99, 0.05);
+}
+
+.page {
+  position: relative;
+  min-height: 30rem;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 58%, #eff6ff 100%);
+}
+
+.page-left {
+  border-radius: 12px 2px 2px 16px / 18px 4px 4px 24px;
+}
+
+.page-right {
+  border-radius: 2px 12px 16px 2px / 4px 18px 24px 4px;
+}
+
+/* Gutter shading towards the spine gives the paper a gentle curl. */
+.page-left::after,
+.page-right::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.page-left::after {
+  background: linear-gradient(to right, rgba(255, 255, 255, 0) 80%, rgba(11, 47, 99, 0.1) 100%);
+}
+
+.page-right::after {
+  background: linear-gradient(to left, rgba(255, 255, 255, 0) 82%, rgba(11, 47, 99, 0.09) 100%);
+}
+
+.spine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 44px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    rgba(11, 47, 99, 0) 0%,
+    rgba(11, 47, 99, 0.06) 22%,
+    rgba(11, 47, 99, 0.16) 50%,
+    rgba(11, 47, 99, 0.06) 78%,
+    rgba(11, 47, 99, 0) 100%
+  );
+  z-index: 2;
+}
+
+@media (min-width: 768px) {
+  .book {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  .book-frame {
+    border-radius: 20px;
+    padding: 10px;
+    transform: none;
+  }
+  .spine {
+    display: none;
+  }
+  .page-left {
+    display: none;
+  }
+  .page-right {
+    min-height: 0;
+    border-radius: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-enter {
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Graduation-cap loading animation
+   -------------------------------------------------------------------------- */
+
+.cap-loader {
+  position: relative;
+  width: 200px;
+  height: 220px;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.cap-loader__cap {
+  transform-origin: 50% 60%;
+  animation: cap-toss 1.6s both;
+}
+
+.cap-loader__shadow {
+  width: 90px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.25);
+  margin-top: 6px;
+  animation: cap-shadow 1.6s both;
+}
+
+.cap-loader__label {
+  margin: 12px 0 0;
+  font: 600 15px system-ui, sans-serif;
+  opacity: 0;
+  animation: cap-fade-in 0.4s 1.5s forwards;
+}
+
+@keyframes cap-toss {
+  0% {
+    transform: translateY(0) scaleY(1) rotate(0);
+    animation-timing-function: ease-out;
+  }
+  10% {
+    transform: translateY(4px) scaleY(0.92) rotate(0);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  45% {
+    transform: translateY(-110px) scaleY(1) rotate(360deg);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.9, 0.5);
+  }
+  80% {
+    transform: translateY(0) rotate(720deg);
+    animation-timing-function: ease-out;
+  }
+  90% {
+    transform: translateY(-10px) rotate(720deg);
+    animation-timing-function: ease-in;
+  }
+  100% {
+    transform: translateY(0) rotate(720deg);
+  }
+}
+
+@keyframes cap-shadow {
+  0%,
+  10%,
+  80%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  45% {
+    transform: scale(0.5);
+    opacity: 0.4;
+  }
+  90% {
+    transform: scale(0.85);
+    opacity: 0.8;
+  }
+}
+
+@keyframes cap-fade-in {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cap-loader__cap,
+  .cap-loader__shadow {
+    animation: none;
+  }
+
+  .cap-loader__label {
+    animation: none;
+    opacity: 1;
+  }
+}
+
