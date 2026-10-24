@@ -24,7 +24,9 @@ function formatAverage(value: number | null | undefined) {
 }
 
 function buildSummaryStats(students: { average: number | null }[]) {
-  const valid = students.map((student) => student.average).filter((value): value is number => value !== null && !Number.isNaN(value));
+  const valid = students
+    .map((student) => student.average)
+    .filter((value): value is number => value !== null && !Number.isNaN(value));
 
   if (valid.length === 0) {
     return { highest: 0, lowest: 0, sd: 0 };
@@ -129,22 +131,37 @@ export default async function ExaminationResultsPage({
             background: #ffffff !important;
           }
 
-          .results-report table,
-          .results-report thead,
-          .results-report tbody,
-          .results-report tr,
-          .results-report th,
-          .results-report td {
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-          }
-
           .results-table-wrap {
             overflow: visible !important;
           }
 
+          .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            -fs-table-paginate: paginate;
+          }
+
           .results-table thead {
             display: table-header-group;
+          }
+
+          .results-table tfoot {
+            display: table-footer-group;
+          }
+
+          .results-table tr,
+          .results-table th,
+          .results-table td {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          .results-table thead th {
+            background: #f3f4f6 !important;
+            color: #000000 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
         }
 
