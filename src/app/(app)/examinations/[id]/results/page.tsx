@@ -136,18 +136,28 @@ export default async function ExaminationResultsPage({
           }
 
           .results-table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
+            width: 100% !important;
+            border-collapse: collapse !important;
+            table-layout: fixed !important;
+            background: #ffffff !important;
             -fs-table-paginate: paginate;
           }
 
           .results-table thead {
             display: table-header-group;
+            background: #ffffff !important;
           }
 
-          .results-table tfoot {
-            display: table-footer-group;
+          .results-table thead th {
+            background: #ffffff !important;
+            color: #000000 !important;
+            border: 1px solid #9ca3af !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          .results-table tbody td {
+            background: #ffffff !important;
           }
 
           .results-table tr,
@@ -155,13 +165,6 @@ export default async function ExaminationResultsPage({
           .results-table td {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
-          }
-
-          .results-table thead th {
-            background: #f3f4f6 !important;
-            color: #000000 !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
           }
         }
 
@@ -482,6 +485,24 @@ export default async function ExaminationResultsPage({
 
           <div className="results-table-wrap">
             <table className="results-table">
+              <colgroup>
+                <col style={{ width: "6%" }} />
+                <col style={{ width: "18%" }} />
+                <col style={{ width: "6%" }} />
+                <col style={{ width: "6%" }} />
+                <col style={{ width: "6%" }} />
+                {subjectColumns.map((subject) => (
+                  <col key={`col-${subject.subjectId}`} style={{ width: "5.5%" }} />
+                ))}
+                <col style={{ width: "6%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "5%" }} />
+                <col style={{ width: "5%" }} />
+                <col style={{ width: "6%" }} />
+                <col style={{ width: "5%" }} />
+              </colgroup>
+
               <thead>
                 <tr>
                   <th style={{ width: "6%" }}>Cand. No</th>
