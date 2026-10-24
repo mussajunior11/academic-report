@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 const DIVISION_ORDER = ["I", "II", "III", "IV", "0"];
 const GRADE_ORDER = ["A", "B", "C", "D", "F"];
+const PAGE_SIZE = 20;
 
 function formatScore(value: number | null | undefined) {
   if (value === null || value === undefined || Number.isNaN(value)) return "";
@@ -95,6 +96,34 @@ export default async function ExaminationResultsPage({
   });
 
   const subjectColumns = allSubjects.filter((subject) => subject.code || subject.name);
+  const pages = [] as Array<typeof students>;
+  for (let index = 0; index < students.length; index += PAGE_SIZE) {
+    pages.push(students.slice(index, index + PAGE_SIZE));
+  }
+
+  const printHeader = (
+    <thead>
+      <tr>
+        <th style={{ width: "6%" }}>Cand. No</th>
+        <th style={{ width: "18%" }}>Student&apos;s Name</th>
+        <th style={{ width: "6%" }}>Gender</th>
+        <th style={{ width: "6%" }}>Class</th>
+        <th style={{ width: "6%" }}>Stream</th>
+        {subjectColumns.map((subject) => (
+          <th key={subject.subjectId} style={{ width: "5.5%" }} title={subject.name}>
+            {subject.code ?? subject.name.slice(0, 4).toUpperCase()}
+          </th>
+        ))}
+        <th style={{ width: "6%" }}>Total Subjects</th>
+        <th style={{ width: "7%" }}>Total Marks</th>
+        <th style={{ width: "7%" }}>Average</th>
+        <th style={{ width: "5%" }}>Grade</th>
+        <th style={{ width: "5%" }}>Position</th>
+        <th style={{ width: "6%" }}>Points</th>
+        <th style={{ width: "5%" }}>Division</th>
+      </tr>
+    </thead>
+  );
 
   return (
     <>
@@ -112,11 +141,6 @@ export default async function ExaminationResultsPage({
             padding: 0 !important;
           }
 
-          body {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-
           .no-print {
             display: none !important;
           }
@@ -131,8 +155,16 @@ export default async function ExaminationResultsPage({
             background: #ffffff !important;
           }
 
-          .results-table-wrap {
-            overflow: visible !important;
+          .results-page {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            page-break-after: always;
+            margin: 0;
+            padding: 0;
+          }
+
+          .results-page:last-child {
+            page-break-after: auto;
           }
 
           .results-table {
@@ -140,29 +172,24 @@ export default async function ExaminationResultsPage({
             border-collapse: collapse !important;
             table-layout: fixed !important;
             background: #ffffff !important;
-            -fs-table-paginate: paginate;
           }
 
           .results-table thead {
-            display: table-header-group;
-            background: #ffffff !important;
+            display: table-header-group !important;
+            background: #f3f4f6 !important;
           }
 
           .results-table thead th {
-            background: #ffffff !important;
+            background: #f3f4f6 !important;
             color: #000000 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
             border: 1px solid #9ca3af !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
           }
 
-          .results-table tbody td {
-            background: #ffffff !important;
-          }
-
-          .results-table tr,
+          .results-table td,
           .results-table th,
-          .results-table td {
+          .results-table tr {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
           }
@@ -394,172 +421,168 @@ export default async function ExaminationResultsPage({
         </div>
 
         <div className="report-sheet">
-          <header className="results-header">
-            {logoUrl ? (
-              <div className="mb-2 flex justify-center">
-                <img src={logoUrl} alt={`${schoolName} logo`} className="h-10 w-auto object-contain" />
+          {pages.map((pageStudents, pageIndex) => (
+            <div key={`page-${pageIndex}`} className="results-page">
+              {pageIndex === 0 ? (
+                <>
+                  <header className="results-header">
+                    {logoUrl ? (
+                      <div className="mb-2 flex justify-center">
+                        <img src={logoUrl} alt={`${schoolName} logo`} className="h-10 w-auto object-contain" />
+                      </div>
+                    ) : null}
+                    <h1 className="results-school">{schoolName}</h1>
+                    <h2 className="results-exam">{examination.title}</h2>
+                  </header>
+
+                  <section className="results-summary">
+                    <div className="summary-panel exam-type">
+                      <div className="exam-type-label">EXAM TYPE</div>
+                      <div className="exam-type-value">{examination.name}</div>
+                    </div>
+
+                    <div className="summary-panel">
+                      <h3>Division performance summary</h3>
+                      <table>
+                        <thead>
+                          <tr>
+                            {DIVISION_ORDER.map((code) => (
+                              <th key={code}>{code}</th>
+                            ))}
+                            <th>TOTAL</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            {DIVISION_ORDER.map((code) => (
+                              <td key={code}>{divisionSummary.find((entry) => entry.code === code)?.total ?? 0}</td>
+                            ))}
+                            <td>{totalDivisionCount}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="summary-panel">
+                      <h3>Grade performance summary</h3>
+                      <table>
+                        <thead>
+                          <tr>
+                            {GRADE_ORDER.map((code) => (
+                              <th key={code}>{code}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            {GRADE_ORDER.map((code) => (
+                              <td key={code}>{gradeSummary[code] ?? 0}</td>
+                            ))}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="summary-panel">
+                      <h3>GPA / Average</h3>
+                      <div className="mini-stats">
+                        <div className="mini-stat">
+                          <span className="mini-stat-label">GPA</span>
+                          <span className="mini-stat-value">{classResults?.headline.gpa != null ? formatAverage(classResults.headline.gpa) : "—"}</span>
+                        </div>
+                        <div className="mini-stat">
+                          <span className="mini-stat-label">AVERAGE</span>
+                          <span className="mini-stat-value">{classResults?.headline.average != null ? formatAverage(classResults.headline.average) : "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="summary-panel" style={{ gridColumn: "span 1" }}>
+                      <h3>Class statistics</h3>
+                      <div className="class-stats-grid">
+                        <span className="label">Highest average</span>
+                        <span className="value">{formatAverage(stats.highest)}</span>
+                        <span className="label">Lowest average</span>
+                        <span className="value">{formatAverage(stats.lowest)}</span>
+                        <span className="label">Standard deviation</span>
+                        <span className="value">{stats.sd ? Number(stats.sd).toFixed(4) : "0.0000"}</span>
+                        <span className="label">Passed</span>
+                        <span className="value">{passed}</span>
+                        <span className="label">Failed</span>
+                        <span className="value">{failed}</span>
+                      </div>
+                    </div>
+                  </section>
+                </>
+              ) : (
+                <header className="results-header" style={{ marginBottom: "8px" }}>
+                  <h1 className="results-school">{schoolName}</h1>
+                  <h2 className="results-exam">{examination.title}</h2>
+                </header>
+              )}
+
+              <div className="results-table-wrap">
+                <table className="results-table">
+                  <colgroup>
+                    <col style={{ width: "6%" }} />
+                    <col style={{ width: "18%" }} />
+                    <col style={{ width: "6%" }} />
+                    <col style={{ width: "6%" }} />
+                    <col style={{ width: "6%" }} />
+                    {subjectColumns.map((subject) => (
+                      <col key={`col-${subject.subjectId}`} style={{ width: "5.5%" }} />
+                    ))}
+                    <col style={{ width: "6%" }} />
+                    <col style={{ width: "7%" }} />
+                    <col style={{ width: "7%" }} />
+                    <col style={{ width: "5%" }} />
+                    <col style={{ width: "5%" }} />
+                    <col style={{ width: "6%" }} />
+                    <col style={{ width: "5%" }} />
+                  </colgroup>
+
+                  {printHeader}
+
+                  <tbody>
+                    {pageStudents.map((student, index) => {
+                      const subjectMap = new Map(student.subjects.map((entry) => [entry.subjectId, entry]));
+
+                      return (
+                        <tr key={student.student.id}>
+                          <td className="candidate-number">{student.student.studentNumber || String(index + 1)}</td>
+                          <td className="student-name">{student.student.fullName}</td>
+                          <td>{student.student.gender === "MALE" ? "M" : student.student.gender === "FEMALE" ? "F" : student.student.gender}</td>
+                          <td>{examination.classLevelName}</td>
+                          <td>{student.student.streamName}</td>
+                          {subjectColumns.map((subject) => {
+                            const current = subjectMap.get(subject.subjectId);
+                            return (
+                              <td key={`${student.student.id}-${subject.subjectId}`} className="score-cell">
+                                {current && current.score !== null ? formatScore(current.score) : ""}
+                              </td>
+                            );
+                          })}
+                          <td className="summary-col">{student.gradedSubjects}</td>
+                          <td className="summary-col">{formatScore(student.totalMarks)}</td>
+                          <td className="summary-col">{student.average ? formatAverage(student.average) : "—"}</td>
+                          <td className="summary-col">{student.averageGrade ?? "—"}</td>
+                          <td className="summary-col">{student.position > 0 ? student.position : "—"}</td>
+                          <td className="summary-col">{student.totalPoints}</td>
+                          <td className="summary-col">{student.division}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            ) : null}
-            <h1 className="results-school">{schoolName}</h1>
-            <h2 className="results-exam">{examination.title}</h2>
-          </header>
 
-          <section className="results-summary">
-            <div className="summary-panel exam-type">
-              <div className="exam-type-label">EXAM TYPE</div>
-              <div className="exam-type-value">{examination.name}</div>
-            </div>
-
-            <div className="summary-panel">
-              <h3>Division performance summary</h3>
-              <table>
-                <thead>
-                  <tr>
-                    {DIVISION_ORDER.map((code) => (
-                      <th key={code}>{code}</th>
-                    ))}
-                    <th>TOTAL</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    {DIVISION_ORDER.map((code) => (
-                      <td key={code}>{divisionSummary.find((entry) => entry.code === code)?.total ?? 0}</td>
-                    ))}
-                    <td>{totalDivisionCount}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div className="summary-panel">
-              <h3>Grade performance summary</h3>
-              <table>
-                <thead>
-                  <tr>
-                    {GRADE_ORDER.map((code) => (
-                      <th key={code}>{code}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    {GRADE_ORDER.map((code) => (
-                      <td key={code}>{gradeSummary[code] ?? 0}</td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div className="summary-panel">
-              <h3>GPA / Average</h3>
-              <div className="mini-stats">
-                <div className="mini-stat">
-                  <span className="mini-stat-label">GPA</span>
-                  <span className="mini-stat-value">{classResults?.headline.gpa != null ? formatAverage(classResults.headline.gpa) : "—"}</span>
+              {pageIndex === pages.length - 1 ? (
+                <div className="results-table-footer">
+                  {ranked.length} of {students.length} student{students.length === 1 ? "" : "s"} ranked · Generated by Academic Report — {schoolName} · {formatReportDate(new Date())}
                 </div>
-                <div className="mini-stat">
-                  <span className="mini-stat-label">AVERAGE</span>
-                  <span className="mini-stat-value">{classResults?.headline.average != null ? formatAverage(classResults.headline.average) : "—"}</span>
-                </div>
-              </div>
+              ) : null}
             </div>
-
-            <div className="summary-panel" style={{ gridColumn: "span 1" }}>
-              <h3>Class statistics</h3>
-              <div className="class-stats-grid">
-                <span className="label">Highest average</span>
-                <span className="value">{formatAverage(stats.highest)}</span>
-                <span className="label">Lowest average</span>
-                <span className="value">{formatAverage(stats.lowest)}</span>
-                <span className="label">Standard deviation</span>
-                <span className="value">{stats.sd ? Number(stats.sd).toFixed(4) : "0.0000"}</span>
-                <span className="label">Passed</span>
-                <span className="value">{passed}</span>
-                <span className="label">Failed</span>
-                <span className="value">{failed}</span>
-              </div>
-            </div>
-          </section>
-
-          <div className="results-table-wrap">
-            <table className="results-table">
-              <colgroup>
-                <col style={{ width: "6%" }} />
-                <col style={{ width: "18%" }} />
-                <col style={{ width: "6%" }} />
-                <col style={{ width: "6%" }} />
-                <col style={{ width: "6%" }} />
-                {subjectColumns.map((subject) => (
-                  <col key={`col-${subject.subjectId}`} style={{ width: "5.5%" }} />
-                ))}
-                <col style={{ width: "6%" }} />
-                <col style={{ width: "7%" }} />
-                <col style={{ width: "7%" }} />
-                <col style={{ width: "5%" }} />
-                <col style={{ width: "5%" }} />
-                <col style={{ width: "6%" }} />
-                <col style={{ width: "5%" }} />
-              </colgroup>
-
-              <thead>
-                <tr>
-                  <th style={{ width: "6%" }}>Cand. No</th>
-                  <th style={{ width: "18%" }}>Student&apos;s Name</th>
-                  <th style={{ width: "6%" }}>Gender</th>
-                  <th style={{ width: "6%" }}>Class</th>
-                  <th style={{ width: "6%" }}>Stream</th>
-                  {subjectColumns.map((subject) => (
-                    <th key={subject.subjectId} style={{ width: "5.5%" }} title={subject.name}>
-                      {subject.code ?? subject.name.slice(0, 4).toUpperCase()}
-                    </th>
-                  ))}
-                  <th style={{ width: "6%" }}>Total Subjects</th>
-                  <th style={{ width: "7%" }}>Total Marks</th>
-                  <th style={{ width: "7%" }}>Average</th>
-                  <th style={{ width: "5%" }}>Grade</th>
-                  <th style={{ width: "5%" }}>Position</th>
-                  <th style={{ width: "6%" }}>Points</th>
-                  <th style={{ width: "5%" }}>Division</th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((student, index) => {
-                  const subjectMap = new Map(student.subjects.map((entry) => [entry.subjectId, entry]));
-
-                  return (
-                    <tr key={student.student.id}>
-                      <td className="candidate-number">{student.student.studentNumber || String(index + 1)}</td>
-                      <td className="student-name">{student.student.fullName}</td>
-                      <td>{student.student.gender === "MALE" ? "M" : student.student.gender === "FEMALE" ? "F" : student.student.gender}</td>
-                      <td>{examination.classLevelName}</td>
-                      <td>{student.student.streamName}</td>
-                      {subjectColumns.map((subject) => {
-                        const current = subjectMap.get(subject.subjectId);
-                        return (
-                          <td key={`${student.student.id}-${subject.subjectId}`} className="score-cell">
-                            {current && current.score !== null ? formatScore(current.score) : ""}
-                          </td>
-                        );
-                      })}
-                      <td className="summary-col">{student.gradedSubjects}</td>
-                      <td className="summary-col">{formatScore(student.totalMarks)}</td>
-                      <td className="summary-col">{student.average ? formatAverage(student.average) : "—"}</td>
-                      <td className="summary-col">{student.averageGrade ?? "—"}</td>
-                      <td className="summary-col">{student.position > 0 ? student.position : "—"}</td>
-                      <td className="summary-col">{student.totalPoints}</td>
-                      <td className="summary-col">{student.division}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="results-table-footer">
-            {ranked.length} of {students.length} student{students.length === 1 ? "" : "s"} ranked · Generated by Academic Report — {schoolName} · {formatReportDate(new Date())}
-          </div>
+          ))}
         </div>
       </div>
     </>
